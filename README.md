@@ -1,8 +1,8 @@
 # wildwest
-A wild west / quickdraw game made in 16bit DOS assembly.
+A quickdraw game made in 16bit DOS assembly, set approximately at the time they should've stopped teaching assembly in schools.
 
 ## Assembling and running
-It should be assembled using Turbo Assembler in DOSBOX.
+The game should be assembled using Turbo Assembler in DOSBOX.
 
 Run the exe by typing 'wildwest' in DOSBOX.
 
@@ -16,7 +16,7 @@ One player uses the up arrow key while another uses W.
 
 Both players compete to be the first shot after the 'SHOOT' signal is displayed.
 
-Shooting before you're allowed to will result in losing the game.
+Shooting before you're allowed to will result in losing the round.
 
 
 ## Credits
