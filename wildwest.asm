@@ -10,7 +10,8 @@ DATASEG
 
 	played db 0 ; used to flag whether we should show insturctions or not
 	fails db 0 ; used for main menu fail counting
-
+	oneSec db ?
+	loopUntil db ?
 ; ------------------------------ SCORE PRINTING -------------------------------
 
 	wWinsCountMsg db 13,10,'W key wins: ','$' ; 13, 10 maybe?
@@ -437,7 +438,7 @@ gameInstructionsAfterWait:
 playTheGame:
 	mov dx, offset bmp_getready
   call PrintBMPFile
-  call WaitASecond ; give them a second to get ready
+;  call WaitASecond ; give them a second to get ready
 ;  mov dx, offset bmp_countdownthree
 ;  call PrintBMPFile
 ;  call WaitASecond
@@ -454,16 +455,44 @@ randomNumber:
   mov ah, 2Ch
   int 21h ; time is now in ch:cl:dh:dl
   and dl, 00000111b ; max is 7
+	inc dl ; making sure they have at least one second
+	add dl, dh ; we want to loop until currsec+rand[1-7]
+	cmp dl, 59
+	jle SaveLoopUntil ; if it won't flow, no reason to change anything
+	sub dl, 60 ; the timer will flow to the next minute, so we'll adjust accordingly
 
-  mov cl, dl
-  xor ch, ch ; now cx has the number of times to run the loop
-	add cx, 1 ; to avoid semi-infinite looping
-  loopcheck:
-    call WaitWhileChecking
-    loop loopcheck
+	SaveLoopUntil:
+	mov [loopUntil], dl
+
+	; wait for a new second to start the timer
+	mov ah, 2Ch ; get curr time
+	int 21h
+	mov [oneSec], dh ; save current second
+
+	WaitForTick:
+		int 21h
+		cmp dh, [oneSec]
+		je WaitForTick ; as long as we are in the same second, keep looping.
+
+	LoopWhileChecking:
+	mov ah, 2Ch
+	int 21h ; get time, seonds in dh
+	cmp dh, [loopUntil]
+	je ShootingAllowed
+	mov ah, 1
+	int 16h ; read keyboard status
+	jz LoopWhileChecking
+	mov ah, 0
+	int 16h ; we now have the key
+	cmp ax, uparrow
+	je wWon
+	cmp ax, wkey
+	je upWon
+	loop LoopWhileChecking
 
 ; if we've reached this point, it means the times is done. Players should be able
-; to press freely now.
+; to shoot now.
+ShootingAllowed:
   mov dx, offset bmp_shoot
   call PrintBMPFile
 scanwhopressed:
@@ -495,22 +524,5 @@ exit:
 	call SwitchToText
 	mov ax, 4c00h
 	int 21h
-
-proc WaitWhileChecking
-
-	call WaitASecond
-	mov ah, 1
-	int 16h ; read keyboard status
-  cmp ax, uparrow
-  je wWon
-	cmp ax, wkey
-  je upWon
-  ; flush keyboard
-	; mov ah, 0Ch  ; UNCOMMENT FOR FAIL PROTECTION BUT UGLY GAPS IN BMP - FIX ME
-	; mov al, 6
-	; int 21h
-	; done. since it's just after checking, there's no loss.
-	ret
-endp WaitWhileChecking
 
 END start ; finito la comedia
