@@ -12,6 +12,8 @@ DATASEG
 	fails db 0 ; used for main menu fail counting
 	oneSec db ?
 	loopUntil db ?
+	waitSeconds db ?
+	waitMilli db ?
 ; ------------------------------ SCORE PRINTING -------------------------------
 
 	wWinsCountMsg db 13,10,'W key wins: ','$' ; 13, 10 maybe?
@@ -26,11 +28,12 @@ DATASEG
 
 ;	------------------------------------ KEYS -----------------------------------
 
-	enterkey equ 1C0Dh
-	downarrow equ 5000h
-	uparrow equ 4800h
-  wkey equ 1177h
-
+	enterkey equ 1Ch
+	downarrow equ 50h
+	uparrow equ 48h
+  wkey equ 11h
+	spacebar equ 39h
+	esckey equ 1h
 
 ; ----------------------------- BMP PRINTING VARS -----------------------------
 
@@ -274,7 +277,50 @@ proc PrintBMPFile ;you should have the bmp's offset in dx
 	ret
 endp PrintBMPFile
 
-proc WaitASecond ; completely halts the program for a second.
+proc WaitASecond
+	push ax
+	push cx
+	push dx
+	mov ah, 2Ch
+	int 21h ; get time. seconds in dh, milliseconds in dl.
+	cmp dh, 59
+	je resetSeconds
+	afterResetSeconds:
+	mov [waitSeconds], dh
+	mov [waitMilli], dl
+	WaitASecondLoop:
+		mov ah, 1
+		int 16h
+		jnz somethingWasPressed ; needed to check if they pressed ESC
+		mov ah, 2Ch
+		int 21h ; get time
+		mov ch, dh
+		sub ch, 2
+		cmp ch, [waitSeconds]
+		je doneWaiting ; in case when testing ms were very high
+		cmp dh, [waitSeconds]
+		je WaitASecondLoop ; if we're at the same second, check again later
+		cmp dl, [waitMilli]
+		jl WaitASecondLoop
+	doneWaiting:
+	pop dx
+	pop cx
+	pop ax
+	ret
+	resetSeconds:
+	sub dh, 60
+	jmp afterResetSeconds
+	somethingWasPressed:
+	mov ah, 0
+	int 16h
+	cmp ah, esckey
+	jne WaitASecondLoop
+	call SwitchToText
+	mov ax, 4C00h
+	int 21h
+endp WaitASecond
+
+proc WaitASecondOld ; completely halts the program for a second.
 	push ax
 	push cx
 	push dx
@@ -286,7 +332,7 @@ proc WaitASecond ; completely halts the program for a second.
 	pop cx
 	pop ax
 	ret
-endp WaitASecond
+endp WaitASecondOld
 
 
 
@@ -317,9 +363,9 @@ mainMenu: ; Main menu section. This will let the players pick 'play' or 'quit'
 	xor cx, cx ; cx will later act as the fail counter
 mainMenuSelect:
 	call WaitForKeypress ; returns scancode in al
-	cmp ax, 4800h ; up key
+	cmp ah, uparrow
 	je mainMenuPlaySelected
-	cmp ax, 5000h ; down
+	cmp ah, downarrow
 	je mainMenuQuitSelected
 ;	jmp mainMenuSelect ; uncomment to enable no fails mode - DEBUG
 
@@ -365,9 +411,11 @@ mainMenuFail: ; if the code has reached this point, it means the user has
 		call PrintBMPFile
 	mainMenuPlaySelectedTwo:
 		call WaitForKeypress
-		cmp ax, downarrow
+		cmp ah, downarrow
 		je mainMenuQuitSelected
-		cmp ax, enterkey
+		cmp ah, enterkey
+		je beforePlaying
+		cmp ah, spacebar
 		je beforePlaying
 		jmp mainMenuPlaySelectedTwo
 	mainMenuQuitSelected:
@@ -375,14 +423,16 @@ mainMenuFail: ; if the code has reached this point, it means the user has
 		call PrintBMPFile
 	mainMenuQuitSelectedTwo:
 		call WaitForKeypress
-		cmp ax, uparrow
+		cmp ah, uparrow
 		je mainMenuPlaySelected
-		cmp ax, enterkey
+		cmp ah, spacebar
+		je QuitAndShowScores
+		cmp ah, enterkey
 		jne mainMenuQuitSelectedTwo ; no need in printing again
 
 		; code reaching this point means the user has pressed enter.
 		; we shall display the scores and quit the game.
-
+QuitAndShowScores:
 		call SwitchToText
 		mov dx, offset wWinsCountMsg
 		mov ah, 9
@@ -484,10 +534,12 @@ randomNumber:
 	jz LoopWhileChecking
 	mov ah, 0
 	int 16h ; we now have the key
-	cmp ax, uparrow
+	cmp ah, uparrow
 	je wWon
-	cmp ax, wkey
+	cmp ah, wkey
 	je upWon
+	cmp ah, esckey
+	je exit
 	loop LoopWhileChecking
 
 ; if we've reached this point, it means the times is done. Players should be able
@@ -498,9 +550,9 @@ ShootingAllowed:
 scanwhopressed:
 	; waiting for input, no need for complex loops now
 	call WaitForKeypress
-	cmp ax, uparrow
+	cmp ah, uparrow
 	je upWon
-	cmp ax, wkey
+	cmp ah, wkey
 	je wWon
 	jmp scanwhopressed
 
