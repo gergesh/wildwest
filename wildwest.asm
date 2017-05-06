@@ -16,16 +16,19 @@ DATASEG
 	waitMilli db ?
 ; ------------------------------ SCORE PRINTING -------------------------------
 
-	wWinsCountMsg db 13,10,'W key wins: ','$' ; 13, 10 maybe?
-	upWinsCountMsg db 13,10,'Up arrow wins: ','$',13,10
+	wPointsCountMsg db 13,10,'W key has ','$' ; 13, 10 maybe?
+	upPointsCountMsg db 13,10,'Up key has ','$',13,10
+	pointsMsg db ' points. $'
 	lineDown db 13,10,'$'
-	upWinsCount db 0
-	wWinsCount db 0
+	upPointsCount db 0
+	wPointsCount db 0
 	divisorTable db 10,1,0
 	tieMsg db 13,10,'It is a tie!', 13, 10, '$'
 	upWonMsg db 13,10,'Up key won!', 13, 10, '$'
 	wWonMsg db 13,10,'W key won!', 13, 10, '$'
-
+	upNoPointsMsg db 13,10,'Up key has no points at all! :( $'
+	wNoPointsMsg db 13,10,'W key has no points at all! :( $'
+	haventPlayedMsg db 13,10,'Seems like you did not bother playing at all :( $'
 ;	------------------------------------ KEYS -----------------------------------
 
 	enterkey equ 1Ch
@@ -414,9 +417,9 @@ mainMenuFail: ; if the code has reached this point, it means the user has
 		cmp ah, downarrow
 		je mainMenuQuitSelected
 		cmp ah, enterkey
-		je beforePlaying
+		je beforePlaying_Bridge
 		cmp ah, spacebar
-		je beforePlaying
+		je beforePlaying_Bridge
 		jmp mainMenuPlaySelectedTwo
 	mainMenuQuitSelected:
 		mov dx, offset bmp_mainMenuQuitSelected
@@ -434,25 +437,71 @@ mainMenuFail: ; if the code has reached this point, it means the user has
 		; we shall display the scores and quit the game.
 QuitAndShowScores:
 		call SwitchToText
-		mov dx, offset wWinsCountMsg
+
+	printWPoints:
+		cmp [wPointsCount], 0
+		je wNoPoints
+		mov dx, offset wPointsCountMsg
 		mov ah, 9
 		int 21h
 		xor ax, ax
-		mov al, [wWinsCount]
+		mov al, [wPointsCount]
 		call printNumber ; we now have w's score printed
-		mov dx, offset upWinsCountMsg
+		mov dx, offset pointsMsg
+		mov ah, 9
+		int 21h
+		jmp printUpPoints
+		wNoPoints:
+			cmp [upPointsCount], 0
+			je haventPlayed
+			mov dx, offset wNoPointsMsg
+			mov ah, 9
+			int 21h
+
+			; moving here means w has no points and up has
+			; so we don't need to jump
+
+	printUpPoints:
+		cmp [upPointsCount], 0
+		je upNoPoints
+		mov dx, offset upPointsCountMsg
 		mov ah, 9
 		int 21h
 		xor ax, ax
-		mov al, [upWinsCount]
+		mov al, [upPointsCount]
 		call printNumber
+		mov dx, offset pointsMsg
+		mov ah, 9
+		int 21h
+		jmp whoWon
+
+	upNoPoints:
+		mov dx, offset upNoPointsMsg
+		mov ah, 9
+		int 21h
+		jmp whoWon
+
+	beforePlaying_Bridge:
+		jmp beforePlaying
+		; was too far for one jump
+
+	haventPlayed:
+		mov dx, offset haventPlayedMsg
+		mov ah, 9
+		int 21h
+
+		mov ax, 4C00h ; exit the program
+		int 21h
+
+	whoWon:
+		; let's print a blank line first
 		mov dx, offset lineDown
-		mov ah, 9h
+		mov ah, 9
 		int 21h
 
 		; checking who won
-		mov al, [upWinsCount]
-		mov ah, [wWinsCount]
+		mov al, [upPointsCount]
+		mov ah, [wPointsCount]
 		cmp al, ah
 		jg printUpWonMsg
 		je printTieMsg
@@ -462,8 +511,7 @@ QuitAndShowScores:
 		mov ah, 9
 		int 21h
 
-		; quitting here.
-		mov ax, 4C00h
+		mov ax, 4C00h ; quitting here.
 		int 21h
 
 		printUpWonMsg:
@@ -474,7 +522,7 @@ QuitAndShowScores:
 		mov dx, offset tieMsg
 		jmp printBeforeQuitting
 
-beforePlaying: ;no need in showing the instructions a second time
+beforePlaying: ; no need in showing the instructions a second time
 	cmp [played], 1
 	je playTheGame
 gameInstructions:
@@ -558,7 +606,7 @@ scanwhopressed:
 
 wWon:
 	mov [played], 1
-	add [wWinsCount], 1
+	add [wPointsCount], 1
 	mov dx, offset bmp_wWon
 	call PrintBMPFile
 	call WaitASecond
@@ -566,7 +614,7 @@ wWon:
 
 upWon:
 	mov [played], 1
-	add [upWinsCount], 1
+	add [upPointsCount], 1
 	mov dx, offset bmp_upWon
 	call PrintBMPFile
 	call WaitASecond
