@@ -11,3 +11,7 @@ Navigate the main menu using the arrow keys and Enter to select an action.
 One player uses the up arrow key while another uses W.
 Both players compete to be the first shot after the 'SHOOT' signal is displayed.
 Shooting before you're allowed to will result in losing the game.
+
+## Credits
+Barak Gonen, author of the Gvahim assembly book.
+Ela Lev, my assembly teacher.
