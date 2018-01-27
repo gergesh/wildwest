@@ -1,5 +1,5 @@
 # wildwest
-A quickdraw game made in 16bit DOS assembly, set approximately at the time they should've stopped teaching assembly in schools.
+A quickdraw game made in 16bit DOS assembly, set approximately at the time they should've stopped teaching it in schools.
 
 ## Assembling and running
 The game should be assembled using Turbo Assembler in DOSBOX.
